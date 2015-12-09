@@ -21,6 +21,8 @@ import (
 	"os/exec"
 	"regexp"
 	"strings"
+
+	"github.com/gobuild/log"
 )
 
 // ### Usage
@@ -36,7 +38,7 @@ var usage = "usage: golit input.go"
 // functions.
 func check(err error) {
 	if err != nil {
-		panic(err)
+		log.Error(err)
 	}
 }
 
@@ -199,4 +201,48 @@ func main() {
 	htmlFileName := strings.TrimSuffix(sourcePath, ".go") + ".html"
 
 	ioutil.WriteFile(htmlFileName, []byte(htmlFile), 0644)
+}
+
+// Check whether a golit dir is present in the package dir,
+// if not create one.
+func checkForGoLitDir(f os.File) {
+	cwd, err := os.Getwd()
+	check(err)
+
+	// check whether the current working dir
+	// is a golit dir
+	if nameHasGoLit(cwd) {
+		return
+	}
+
+	// check the contents of the current dir for
+	// a golit dir
+	cwdContents, err := ioutil.ReadDir(cwd)
+	check(err)
+
+	// iterate through the cwdContents ([]os.FileInfo)
+	// if f is a dir and contains the string "-golit"
+	// return
+	for _, f := range cwdContents {
+		if f.IsDir() && nameHasGoLit(f.Name()) {
+			return
+		}
+	}
+
+	// if the cwd isn't the golit dir and doesn't contain
+	// the golit dir, create a new one.
+	// The name of the golit dir is determined by the cwd,
+	// with "-golit" appended to it.
+	err = os.Mkdir(cwd+"-golit", 0666)
+	if err != nil {
+		log.Error(err)
+		fmt.Print("Unable to create golit directory")
+	}
+}
+
+// Check if string contains "-golit".
+// All golit dirs follow the naming convention:
+// packageName-golit
+func nameHasGoLit(dirname string) bool {
+	return strings.Contains(dirname, "-golit")
 }
