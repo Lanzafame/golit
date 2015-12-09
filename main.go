@@ -15,45 +15,45 @@
 package main
 
 import (
-    "fmt"
-    "io/ioutil"
-    "os"
-    "os/exec"
-    "regexp"
-    "strings"
+	"fmt"
+	"io/ioutil"
+	"os"
+	"os/exec"
+	"regexp"
+	"strings"
 )
 
 // ### Usage
 
-// golit takes exactly two arguments: the path to a Go source file and
-// the title for the resulting HTML page. It writes the compiled HTML
-// on stdout.
-var usage = "usage: golit input.go title > output.html"
+// golit takes one argument: the path to a Go source file
+// It writes the compiled HTML to a file with the same name
+// as the go source code file that it is processing.
+var usage = "usage: golit input.go"
 
 // ### Helpers
 
 // Panic on non-nil errors. We'll call this after error-returning
 // functions.
 func check(err error) {
-    if err != nil {
-        panic(err)
-    }
+	if err != nil {
+		panic(err)
+	}
 }
 
 // We'll implement Markdown rendering and Pygments syntax highlighting
 // by piping the source data through external programs. This is a
 // general helper for handling both cases.
 func pipe(bin string, arg []string, src string) string {
-    cmd := exec.Command(bin, arg...)
-    in, _ := cmd.StdinPipe()
-    out, _ := cmd.StdoutPipe()
-    cmd.Start()
-    in.Write([]byte(src))
-    in.Close()
-    bytes, _ := ioutil.ReadAll(out)
-    err := cmd.Wait()
-    check(err)
-    return string(bytes)
+	cmd := exec.Command(bin, arg...)
+	in, _ := cmd.StdinPipe()
+	out, _ := cmd.StdoutPipe()
+	cmd.Start()
+	in.Write([]byte(src))
+	in.Close()
+	bytes, _ := ioutil.ReadAll(out)
+	err := cmd.Wait()
+	check(err)
+	return string(bytes)
 }
 
 // ### Processing
@@ -67,98 +67,97 @@ var headerPat = regexp.MustCompile("^\\s*\\/\\/\\s#+\\s")
 // We'll break the code into `{docs, code}` pairs, and then render
 // those text segments before including them in the HTML doc.
 type seg struct {
-    docs, code, docsRendered, codeRendered string
+	docs, code, docsRendered, codeRendered string
 }
 
 func main() {
-    // Accept exactly 2 argument, the source path and page title.
-    if len(os.Args) != 3 {
-        fmt.Fprintln(os.Stderr, usage)
-        os.Exit(1)
-    }
-    sourcePath := os.Args[1]
-    title := os.Args[2]
+	// Accept exactly 1 argument, the source path.
+	if len(os.Args) != 2 {
+		fmt.Fprintln(os.Stderr, usage)
+		os.Exit(1)
+	}
+	sourcePath := os.Args[1]
 
-    // Ensure that we have `markdown` and `pygmentize` binaries,
-    // remember their paths.
-    markdownPath, err := exec.LookPath("markdown")
-    check(err)
-    pygmentizePath, err := exec.LookPath("pygmentize")
-    check(err)
+	// Ensure that we have `markdown` and `pygmentize` binaries,
+	// remember their paths.
+	markdownPath, err := exec.LookPath("markdown")
+	check(err)
+	pygmentizePath, err := exec.LookPath("pygmentize")
+	check(err)
 
-    // Read the source file in, split into lines.
-    srcBytes, err := ioutil.ReadFile(sourcePath)
-    check(err)
-    lines := strings.Split(string(srcBytes), "\n")
+	// Read the source file in, split into lines.
+	srcBytes, err := ioutil.ReadFile(sourcePath)
+	check(err)
+	lines := strings.Split(string(srcBytes), "\n")
 
-    // Group lines into docs/code segments. There are two tricky
-    // aspects to this. First, we want to treat header comments
-    // specially so that they are always in their own segment and
-    // therefore never directly adjacent to any code. Second, we need
-    // to correctly start new segments on certain code/doc boundries
-    // but not on others. In order to handle this later aspect we'll
-    // refer to some state about the previous line and segment when
-    // deciding to handle the current one being processed.
-    segs := []*seg{}
-    segs = append(segs, &seg{code: "", docs: ""})
-    lastSeen := ""
-    for _, line := range lines {
-        headerMatch := headerPat.MatchString(line)
-        docsMatch := docsPat.MatchString(line)
-        emptyMatch := line == ""
-        lastSeg := segs[len(segs)-1]
-        lastHeader := lastSeen == "header"
-        lastDocs := lastSeen == "docs"
-        newHeader := (lastSeen != "header") && lastSeg.docs != ""
-        newDocs := (lastSeen != "docs") && lastSeg.docs != ""
-        newCode := (lastSeen != "code") && lastSeg.code != ""
-        // Header line - strip out comment indicator and ensure a
-        // dedicated segment for the header, independent of potential
-        // surrounding docs. Note that here - as in the other cases
-        // below - we coalesced empty lines into the type of the previous
-        // line.
-        if headerMatch || (emptyMatch && lastHeader) {
-            trimmed := docsPat.ReplaceAllString(line, "")
-            if newHeader {
-                newSeg := seg{docs: trimmed, code: ""}
-                segs = append(segs, &newSeg)
-            } else {
-                lastSeg.docs = lastSeg.docs + "\n" + trimmed
-            }
+	// Group lines into docs/code segments. There are two tricky
+	// aspects to this. First, we want to treat header comments
+	// specially so that they are always in their own segment and
+	// therefore never directly adjacent to any code. Second, we need
+	// to correctly start new segments on certain code/doc boundries
+	// but not on others. In order to handle this later aspect we'll
+	// refer to some state about the previous line and segment when
+	// deciding to handle the current one being processed.
+	segs := []*seg{}
+	segs = append(segs, &seg{code: "", docs: ""})
+	lastSeen := ""
+	for _, line := range lines {
+		headerMatch := headerPat.MatchString(line)
+		docsMatch := docsPat.MatchString(line)
+		emptyMatch := line == ""
+		lastSeg := segs[len(segs)-1]
+		lastHeader := lastSeen == "header"
+		lastDocs := lastSeen == "docs"
+		newHeader := (lastSeen != "header") && lastSeg.docs != ""
+		newDocs := (lastSeen != "docs") && lastSeg.docs != ""
+		newCode := (lastSeen != "code") && lastSeg.code != ""
+		// Header line - strip out comment indicator and ensure a
+		// dedicated segment for the header, independent of potential
+		// surrounding docs. Note that here - as in the other cases
+		// below - we coalesced empty lines into the type of the previous
+		// line.
+		if headerMatch || (emptyMatch && lastHeader) {
+			trimmed := docsPat.ReplaceAllString(line, "")
+			if newHeader {
+				newSeg := seg{docs: trimmed, code: ""}
+				segs = append(segs, &newSeg)
+			} else {
+				lastSeg.docs = lastSeg.docs + "\n" + trimmed
+			}
 			lastSeen = "header"
-            // Docs line - strip out comment indicator.
-        } else if docsMatch || (emptyMatch && lastDocs) {
-            trimmed := docsPat.ReplaceAllString(line, "")
-            if newDocs {
-                newSeg := seg{docs: trimmed, code: ""}
-                segs = append(segs, &newSeg)
-            } else {
-                lastSeg.docs = lastSeg.docs + "\n" + trimmed
-            }
-            lastSeen = "docs"
-            // Code line - preserve all whitespace.
-        } else {
-            if newCode {
-                newSeg := seg{docs: "", code: line}
-                segs = append(segs, &newSeg)
-            } else {
-                lastSeg.code = lastSeg.code + "\n" + line
-            }
-            lastSeen = "code"
-        }
-    }
+			// Docs line - strip out comment indicator.
+		} else if docsMatch || (emptyMatch && lastDocs) {
+			trimmed := docsPat.ReplaceAllString(line, "")
+			if newDocs {
+				newSeg := seg{docs: trimmed, code: ""}
+				segs = append(segs, &newSeg)
+			} else {
+				lastSeg.docs = lastSeg.docs + "\n" + trimmed
+			}
+			lastSeen = "docs"
+			// Code line - preserve all whitespace.
+		} else {
+			if newCode {
+				newSeg := seg{docs: "", code: line}
+				segs = append(segs, &newSeg)
+			} else {
+				lastSeg.code = lastSeg.code + "\n" + line
+			}
+			lastSeen = "code"
+		}
+	}
 
-    // Render docs via `markdown` and code via `pygmentize` in each
-    // segment, using our `pipe` helper.
-    for _, seg := range segs {
-        seg.docsRendered = pipe(markdownPath, []string{}, seg.docs)
-        seg.codeRendered = pipe(pygmentizePath, []string{"-l", "go", "-f", "html"}, seg.code+"  ")
-    }
+	// Render docs via `markdown` and code via `pygmentize` in each
+	// segment, using our `pipe` helper.
+	for _, seg := range segs {
+		seg.docsRendered = pipe(markdownPath, []string{}, seg.docs)
+		seg.codeRendered = pipe(pygmentizePath, []string{"-l", "go", "-f", "html"}, seg.code+"  ")
+	}
 
-    // ### Rendering
+	// ### Rendering
 
-    // Print HTML header.
-    fmt.Printf(`
+	// Print HTML header.
+	htmlHeader := fmt.Sprintf(`
 <!DOCTYPE html>
 <html>
   <head>
@@ -176,21 +175,28 @@ func main() {
             <td class=code></td>
           </tr>
         </thead>
-        <tbody>`, title)
+        <tbody>`, strings.TrimSuffix(sourcePath, ".go"))
 
-    // Print HTML docs/code segments.
-    for _, seg := range segs {
-        fmt.Printf(
-            `<tr>
+	// Print HTML docs/code segments.
+	var htmlSegs string
+	for _, seg := range segs {
+		s := fmt.Sprintf(
+			`<tr>
              <td class=docs>%s</td>
              <td class=code>%s</td>
            </tr>`, seg.docsRendered, seg.codeRendered)
-    }
+		htmlSegs = htmlSegs + s
+	}
 
-    // Print HTML footer.
-    fmt.Print(`</tbody>
+	// Print HTML footer.
+	htmlFooter := fmt.Sprint(`</tbody>
            </table>
          </div>
        </body>
      </html>`)
+
+	htmlFile := htmlHeader + htmlSegs + htmlFooter
+	htmlFileName := strings.TrimSuffix(sourcePath, ".go") + ".html"
+
+	ioutil.WriteFile(htmlFileName, []byte(htmlFile), 0644)
 }
