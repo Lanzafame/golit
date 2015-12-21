@@ -12,6 +12,8 @@
 // This page is the result of running golit against its own source
 // file.
 
+// git appraise test
+
 package main
 
 import (
