@@ -1,0 +1,321 @@
+
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-eqiv="content-type" content="text/html;charset=utf-8">
+    <title>main</title>
+    <link rel=stylesheet href="http://jashkenas.github.com/docco/resources/docco.css">
+  </head>
+  <body>
+    <div id="container">
+      <div id="background"></div>
+      <table cellspacing="0" cellpadding="0">
+        <thead>
+          <tr>
+            <td class=docs></td>
+            <td class=code></td>
+          </tr>
+        </thead>
+        <tbody><tr>
+             <td class=docs><h2>golit</h2>
+</td>
+             <td class=code><div class="highlight"><pre>  
+</pre></div>
+</td>
+           </tr><tr>
+             <td class=docs><p><strong>golit</strong> generates literate-programming-style HTML documentation
+from a Go source file. It produces HTML with comments alongside your
+code. Comments are parsed through <a href="http://daringfireball.net/projects/markdown/syntax">Markdown</a>
+and code highlighted with <a href="http://pygments.org/">Pygments</a>.</p>
+
+<p>golit is based on <a href="http://jashkenas.github.com/docco/">docco</a>
+and <a href="http://rtomayko.github.com/shocco/">shocco</a>, two earlier
+programs in the same style.</p>
+
+<p>This page is the result of running golit against its own source
+file.</p>
+</td>
+             <td class=code><div class="highlight"><pre><span class="kn">package</span> <span class="nx">main</span>
+
+<span class="kn">import</span> <span class="p">(</span>
+	<span class="s">&quot;fmt&quot;</span>
+	<span class="s">&quot;io/ioutil&quot;</span>
+	<span class="s">&quot;os&quot;</span>
+	<span class="s">&quot;os/exec&quot;</span>
+	<span class="s">&quot;regexp&quot;</span>
+	<span class="s">&quot;strings&quot;</span>
+<span class="p">)</span>
+  
+</pre></div>
+</td>
+           </tr><tr>
+             <td class=docs><h3>Usage</h3>
+</td>
+             <td class=code><div class="highlight"><pre>  
+</pre></div>
+</td>
+           </tr><tr>
+             <td class=docs><p>golit takes exactly one argument: the path to a Go source file.
+It writes the compiled HTML on stdout.</p>
+</td>
+             <td class=code><div class="highlight"><pre><span class="kd">var</span> <span class="nx">usage</span> <span class="p">=</span> <span class="s">&quot;usage: golit input.go&quot;</span>
+  
+</pre></div>
+</td>
+           </tr><tr>
+             <td class=docs><h3>Helpers</h3>
+</td>
+             <td class=code><div class="highlight"><pre>  
+</pre></div>
+</td>
+           </tr><tr>
+             <td class=docs><p>Panic on non-nil errors. We'll call this after error-returning
+functions.</p>
+</td>
+             <td class=code><div class="highlight"><pre><span class="kd">func</span> <span class="nx">check</span><span class="p">(</span><span class="nx">err</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+	<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+		<span class="nb">panic</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+	<span class="p">}</span>
+<span class="p">}</span>
+  
+</pre></div>
+</td>
+           </tr><tr>
+             <td class=docs><p>We'll implement Markdown rendering and Pygments syntax highlighting
+by piping the source data through external programs. This is a
+general helper for handling both cases.</p>
+</td>
+             <td class=code><div class="highlight"><pre><span class="kd">func</span> <span class="nx">pipe</span><span class="p">(</span><span class="nx">bin</span> <span class="kt">string</span><span class="p">,</span> <span class="nx">arg</span> <span class="p">[]</span><span class="kt">string</span><span class="p">,</span> <span class="nx">src</span> <span class="kt">string</span><span class="p">)</span> <span class="kt">string</span> <span class="p">{</span>
+	<span class="nx">cmd</span> <span class="o">:=</span> <span class="nx">exec</span><span class="p">.</span><span class="nx">Command</span><span class="p">(</span><span class="nx">bin</span><span class="p">,</span> <span class="nx">arg</span><span class="o">...</span><span class="p">)</span>
+	<span class="nx">in</span><span class="p">,</span> <span class="nx">_</span> <span class="o">:=</span> <span class="nx">cmd</span><span class="p">.</span><span class="nx">StdinPipe</span><span class="p">()</span>
+	<span class="nx">out</span><span class="p">,</span> <span class="nx">_</span> <span class="o">:=</span> <span class="nx">cmd</span><span class="p">.</span><span class="nx">StdoutPipe</span><span class="p">()</span>
+	<span class="nx">cmd</span><span class="p">.</span><span class="nx">Start</span><span class="p">()</span>
+	<span class="nx">in</span><span class="p">.</span><span class="nx">Write</span><span class="p">([]</span><span class="nb">byte</span><span class="p">(</span><span class="nx">src</span><span class="p">))</span>
+	<span class="nx">in</span><span class="p">.</span><span class="nx">Close</span><span class="p">()</span>
+	<span class="nx">bytes</span><span class="p">,</span> <span class="nx">_</span> <span class="o">:=</span> <span class="nx">ioutil</span><span class="p">.</span><span class="nx">ReadAll</span><span class="p">(</span><span class="nx">out</span><span class="p">)</span>
+	<span class="nx">err</span> <span class="o">:=</span> <span class="nx">cmd</span><span class="p">.</span><span class="nx">Wait</span><span class="p">()</span>
+	<span class="nx">check</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+	<span class="k">return</span> <span class="nb">string</span><span class="p">(</span><span class="nx">bytes</span><span class="p">)</span>
+<span class="p">}</span>
+  
+</pre></div>
+</td>
+           </tr><tr>
+             <td class=docs><h3>Processing</h3>
+</td>
+             <td class=code><div class="highlight"><pre>  
+</pre></div>
+</td>
+           </tr><tr>
+             <td class=docs><p>Recognize doc lines, extract their comment prefixes.</p>
+</td>
+             <td class=code><div class="highlight"><pre><span class="kd">var</span> <span class="nx">docsPat</span> <span class="p">=</span> <span class="nx">regexp</span><span class="p">.</span><span class="nx">MustCompile</span><span class="p">(</span><span class="s">&quot;^\\s*\\/\\/\\s&quot;</span><span class="p">)</span>
+  
+</pre></div>
+</td>
+           </tr><tr>
+             <td class=docs><p>Recognize header comment lines specially.</p>
+</td>
+             <td class=code><div class="highlight"><pre><span class="kd">var</span> <span class="nx">headerPat</span> <span class="p">=</span> <span class="nx">regexp</span><span class="p">.</span><span class="nx">MustCompile</span><span class="p">(</span><span class="s">&quot;^\\s*\\/\\/\\s#+\\s&quot;</span><span class="p">)</span>
+  
+</pre></div>
+</td>
+           </tr><tr>
+             <td class=docs><p>We'll break the code into <code>{docs, code}</code> pairs, and then render
+those text segments before including them in the HTML doc.</p>
+</td>
+             <td class=code><div class="highlight"><pre><span class="kd">type</span> <span class="nx">seg</span> <span class="kd">struct</span> <span class="p">{</span>
+	<span class="nx">docs</span><span class="p">,</span> <span class="nx">code</span><span class="p">,</span> <span class="nx">docsRendered</span><span class="p">,</span> <span class="nx">codeRendered</span> <span class="kt">string</span>
+<span class="p">}</span>
+
+<span class="kd">func</span> <span class="nx">main</span><span class="p">()</span> <span class="p">{</span>  
+</pre></div>
+</td>
+           </tr><tr>
+             <td class=docs><p>Accept exactly 1 argument, the source path.</p>
+</td>
+             <td class=code><div class="highlight"><pre>	<span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="nx">os</span><span class="p">.</span><span class="nx">Args</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span> <span class="p">{</span>
+		<span class="nx">fmt</span><span class="p">.</span><span class="nx">Fprintln</span><span class="p">(</span><span class="nx">os</span><span class="p">.</span><span class="nx">Stderr</span><span class="p">,</span> <span class="nx">usage</span><span class="p">)</span>
+		<span class="nx">os</span><span class="p">.</span><span class="nx">Exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+	<span class="p">}</span>
+	<span class="nx">sourcePath</span> <span class="o">:=</span> <span class="nx">os</span><span class="p">.</span><span class="nx">Args</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+  
+</pre></div>
+</td>
+           </tr><tr>
+             <td class=docs><p>Ensure that we have <code>markdown</code> and <code>pygmentize</code> binaries,
+remember their paths.</p>
+</td>
+             <td class=code><div class="highlight"><pre>	<span class="nx">markdownPath</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">exec</span><span class="p">.</span><span class="nx">LookPath</span><span class="p">(</span><span class="s">&quot;markdown&quot;</span><span class="p">)</span>
+	<span class="nx">check</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+	<span class="nx">pygmentizePath</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">exec</span><span class="p">.</span><span class="nx">LookPath</span><span class="p">(</span><span class="s">&quot;pygmentize&quot;</span><span class="p">)</span>
+	<span class="nx">check</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+  
+</pre></div>
+</td>
+           </tr><tr>
+             <td class=docs><p>Read the source file in, split into lines.</p>
+</td>
+             <td class=code><div class="highlight"><pre>	<span class="nx">srcBytes</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">ioutil</span><span class="p">.</span><span class="nx">ReadFile</span><span class="p">(</span><span class="nx">sourcePath</span><span class="p">)</span>
+	<span class="nx">check</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+	<span class="nx">lines</span> <span class="o">:=</span> <span class="nx">strings</span><span class="p">.</span><span class="nx">Split</span><span class="p">(</span><span class="nb">string</span><span class="p">(</span><span class="nx">srcBytes</span><span class="p">),</span> <span class="s">&quot;\n&quot;</span><span class="p">)</span>
+  
+</pre></div>
+</td>
+           </tr><tr>
+             <td class=docs><p>Group lines into docs/code segments. There are two tricky
+aspects to this. First, we want to treat header comments
+specially so that they are always in their own segment and
+therefore never directly adjacent to any code. Second, we need
+to correctly start new segments on certain code/doc boundries
+but not on others. In order to handle this later aspect we'll
+refer to some state about the previous line and segment when
+deciding to handle the current one being processed.</p>
+</td>
+             <td class=code><div class="highlight"><pre>	<span class="nx">segs</span> <span class="o">:=</span> <span class="p">[]</span><span class="o">*</span><span class="nx">seg</span><span class="p">{}</span>
+	<span class="nx">segs</span> <span class="p">=</span> <span class="nb">append</span><span class="p">(</span><span class="nx">segs</span><span class="p">,</span> <span class="o">&amp;</span><span class="nx">seg</span><span class="p">{</span><span class="nx">code</span><span class="p">:</span> <span class="s">&quot;&quot;</span><span class="p">,</span> <span class="nx">docs</span><span class="p">:</span> <span class="s">&quot;&quot;</span><span class="p">})</span>
+	<span class="nx">lastSeen</span> <span class="o">:=</span> <span class="s">&quot;&quot;</span>
+	<span class="k">for</span> <span class="nx">_</span><span class="p">,</span> <span class="nx">line</span> <span class="o">:=</span> <span class="k">range</span> <span class="nx">lines</span> <span class="p">{</span>
+		<span class="nx">headerMatch</span> <span class="o">:=</span> <span class="nx">headerPat</span><span class="p">.</span><span class="nx">MatchString</span><span class="p">(</span><span class="nx">line</span><span class="p">)</span>
+		<span class="nx">docsMatch</span> <span class="o">:=</span> <span class="nx">docsPat</span><span class="p">.</span><span class="nx">MatchString</span><span class="p">(</span><span class="nx">line</span><span class="p">)</span>
+		<span class="nx">emptyMatch</span> <span class="o">:=</span> <span class="nx">line</span> <span class="o">==</span> <span class="s">&quot;&quot;</span>
+		<span class="nx">lastSeg</span> <span class="o">:=</span> <span class="nx">segs</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="nx">segs</span><span class="p">)</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+		<span class="nx">lastHeader</span> <span class="o">:=</span> <span class="nx">lastSeen</span> <span class="o">==</span> <span class="s">&quot;header&quot;</span>
+		<span class="nx">lastDocs</span> <span class="o">:=</span> <span class="nx">lastSeen</span> <span class="o">==</span> <span class="s">&quot;docs&quot;</span>
+		<span class="nx">newHeader</span> <span class="o">:=</span> <span class="p">(</span><span class="nx">lastSeen</span> <span class="o">!=</span> <span class="s">&quot;header&quot;</span><span class="p">)</span> <span class="o">&amp;&amp;</span> <span class="nx">lastSeg</span><span class="p">.</span><span class="nx">docs</span> <span class="o">!=</span> <span class="s">&quot;&quot;</span>
+		<span class="nx">newDocs</span> <span class="o">:=</span> <span class="p">(</span><span class="nx">lastSeen</span> <span class="o">!=</span> <span class="s">&quot;docs&quot;</span><span class="p">)</span> <span class="o">&amp;&amp;</span> <span class="nx">lastSeg</span><span class="p">.</span><span class="nx">docs</span> <span class="o">!=</span> <span class="s">&quot;&quot;</span>
+		<span class="nx">newCode</span> <span class="o">:=</span> <span class="p">(</span><span class="nx">lastSeen</span> <span class="o">!=</span> <span class="s">&quot;code&quot;</span><span class="p">)</span> <span class="o">&amp;&amp;</span> <span class="nx">lastSeg</span><span class="p">.</span><span class="nx">code</span> <span class="o">!=</span> <span class="s">&quot;&quot;</span>  
+</pre></div>
+</td>
+           </tr><tr>
+             <td class=docs><p>Header line - strip out comment indicator and ensure a
+dedicated segment for the header, independent of potential
+surrounding docs. Note that here - as in the other cases
+below - we coalesced empty lines into the type of the previous
+line.</p>
+</td>
+             <td class=code><div class="highlight"><pre>		<span class="k">if</span> <span class="nx">headerMatch</span> <span class="o">||</span> <span class="p">(</span><span class="nx">emptyMatch</span> <span class="o">&amp;&amp;</span> <span class="nx">lastHeader</span><span class="p">)</span> <span class="p">{</span>
+			<span class="nx">trimmed</span> <span class="o">:=</span> <span class="nx">docsPat</span><span class="p">.</span><span class="nx">ReplaceAllString</span><span class="p">(</span><span class="nx">line</span><span class="p">,</span> <span class="s">&quot;&quot;</span><span class="p">)</span>
+			<span class="k">if</span> <span class="nx">newHeader</span> <span class="p">{</span>
+				<span class="nx">newSeg</span> <span class="o">:=</span> <span class="nx">seg</span><span class="p">{</span><span class="nx">docs</span><span class="p">:</span> <span class="nx">trimmed</span><span class="p">,</span> <span class="nx">code</span><span class="p">:</span> <span class="s">&quot;&quot;</span><span class="p">}</span>
+				<span class="nx">segs</span> <span class="p">=</span> <span class="nb">append</span><span class="p">(</span><span class="nx">segs</span><span class="p">,</span> <span class="o">&amp;</span><span class="nx">newSeg</span><span class="p">)</span>
+			<span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+				<span class="nx">lastSeg</span><span class="p">.</span><span class="nx">docs</span> <span class="p">=</span> <span class="nx">lastSeg</span><span class="p">.</span><span class="nx">docs</span> <span class="o">+</span> <span class="s">&quot;\n&quot;</span> <span class="o">+</span> <span class="nx">trimmed</span>
+			<span class="p">}</span>
+			<span class="nx">lastSeen</span> <span class="p">=</span> <span class="s">&quot;header&quot;</span>  
+</pre></div>
+</td>
+           </tr><tr>
+             <td class=docs><p>Docs line - strip out comment indicator.</p>
+</td>
+             <td class=code><div class="highlight"><pre>		<span class="p">}</span> <span class="k">else</span> <span class="k">if</span> <span class="nx">docsMatch</span> <span class="o">||</span> <span class="p">(</span><span class="nx">emptyMatch</span> <span class="o">&amp;&amp;</span> <span class="nx">lastDocs</span><span class="p">)</span> <span class="p">{</span>
+			<span class="nx">trimmed</span> <span class="o">:=</span> <span class="nx">docsPat</span><span class="p">.</span><span class="nx">ReplaceAllString</span><span class="p">(</span><span class="nx">line</span><span class="p">,</span> <span class="s">&quot;&quot;</span><span class="p">)</span>
+			<span class="k">if</span> <span class="nx">newDocs</span> <span class="p">{</span>
+				<span class="nx">newSeg</span> <span class="o">:=</span> <span class="nx">seg</span><span class="p">{</span><span class="nx">docs</span><span class="p">:</span> <span class="nx">trimmed</span><span class="p">,</span> <span class="nx">code</span><span class="p">:</span> <span class="s">&quot;&quot;</span><span class="p">}</span>
+				<span class="nx">segs</span> <span class="p">=</span> <span class="nb">append</span><span class="p">(</span><span class="nx">segs</span><span class="p">,</span> <span class="o">&amp;</span><span class="nx">newSeg</span><span class="p">)</span>
+			<span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+				<span class="nx">lastSeg</span><span class="p">.</span><span class="nx">docs</span> <span class="p">=</span> <span class="nx">lastSeg</span><span class="p">.</span><span class="nx">docs</span> <span class="o">+</span> <span class="s">&quot;\n&quot;</span> <span class="o">+</span> <span class="nx">trimmed</span>
+			<span class="p">}</span>
+			<span class="nx">lastSeen</span> <span class="p">=</span> <span class="s">&quot;docs&quot;</span>  
+</pre></div>
+</td>
+           </tr><tr>
+             <td class=docs><p>Code line - preserve all whitespace.</p>
+</td>
+             <td class=code><div class="highlight"><pre>		<span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+			<span class="k">if</span> <span class="nx">newCode</span> <span class="p">{</span>
+				<span class="nx">newSeg</span> <span class="o">:=</span> <span class="nx">seg</span><span class="p">{</span><span class="nx">docs</span><span class="p">:</span> <span class="s">&quot;&quot;</span><span class="p">,</span> <span class="nx">code</span><span class="p">:</span> <span class="nx">line</span><span class="p">}</span>
+				<span class="nx">segs</span> <span class="p">=</span> <span class="nb">append</span><span class="p">(</span><span class="nx">segs</span><span class="p">,</span> <span class="o">&amp;</span><span class="nx">newSeg</span><span class="p">)</span>
+			<span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+				<span class="nx">lastSeg</span><span class="p">.</span><span class="nx">code</span> <span class="p">=</span> <span class="nx">lastSeg</span><span class="p">.</span><span class="nx">code</span> <span class="o">+</span> <span class="s">&quot;\n&quot;</span> <span class="o">+</span> <span class="nx">line</span>
+			<span class="p">}</span>
+			<span class="nx">lastSeen</span> <span class="p">=</span> <span class="s">&quot;code&quot;</span>
+		<span class="p">}</span>
+	<span class="p">}</span>
+  
+</pre></div>
+</td>
+           </tr><tr>
+             <td class=docs><p>Render docs via <code>markdown</code> and code via <code>pygmentize</code> in each
+segment, using our <code>pipe</code> helper.</p>
+</td>
+             <td class=code><div class="highlight"><pre>	<span class="k">for</span> <span class="nx">_</span><span class="p">,</span> <span class="nx">seg</span> <span class="o">:=</span> <span class="k">range</span> <span class="nx">segs</span> <span class="p">{</span>
+		<span class="nx">seg</span><span class="p">.</span><span class="nx">docsRendered</span> <span class="p">=</span> <span class="nx">pipe</span><span class="p">(</span><span class="nx">markdownPath</span><span class="p">,</span> <span class="p">[]</span><span class="kt">string</span><span class="p">{},</span> <span class="nx">seg</span><span class="p">.</span><span class="nx">docs</span><span class="p">)</span>
+		<span class="nx">seg</span><span class="p">.</span><span class="nx">codeRendered</span> <span class="p">=</span> <span class="nx">pipe</span><span class="p">(</span><span class="nx">pygmentizePath</span><span class="p">,</span> <span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="s">&quot;-l&quot;</span><span class="p">,</span> <span class="s">&quot;go&quot;</span><span class="p">,</span> <span class="s">&quot;-f&quot;</span><span class="p">,</span> <span class="s">&quot;html&quot;</span><span class="p">},</span> <span class="nx">seg</span><span class="p">.</span><span class="nx">code</span><span class="o">+</span><span class="s">&quot;  &quot;</span><span class="p">)</span>
+	<span class="p">}</span>
+  
+</pre></div>
+</td>
+           </tr><tr>
+             <td class=docs><h3>Rendering</h3>
+</td>
+             <td class=code><div class="highlight"><pre>  
+</pre></div>
+</td>
+           </tr><tr>
+             <td class=docs><p>Print HTML header.</p>
+</td>
+             <td class=code><div class="highlight"><pre>	<span class="nx">header</span> <span class="o">:=</span> <span class="nx">fmt</span><span class="p">.</span><span class="nx">Sprintf</span><span class="p">(</span><span class="s">`</span>
+<span class="s">&lt;!DOCTYPE html&gt;</span>
+<span class="s">&lt;html&gt;</span>
+<span class="s">  &lt;head&gt;</span>
+<span class="s">    &lt;meta http-eqiv=&quot;content-type&quot; content=&quot;text/html;charset=utf-8&quot;&gt;</span>
+<span class="s">    &lt;title&gt;%s&lt;/title&gt;</span>
+<span class="s">    &lt;link rel=stylesheet href=&quot;http://jashkenas.github.com/docco/resources/docco.css&quot;&gt;</span>
+<span class="s">  &lt;/head&gt;</span>
+<span class="s">  &lt;body&gt;</span>
+<span class="s">    &lt;div id=&quot;container&quot;&gt;</span>
+<span class="s">      &lt;div id=&quot;background&quot;&gt;&lt;/div&gt;</span>
+<span class="s">      &lt;table cellspacing=&quot;0&quot; cellpadding=&quot;0&quot;&gt;</span>
+<span class="s">        &lt;thead&gt;</span>
+<span class="s">          &lt;tr&gt;</span>
+<span class="s">            &lt;td class=docs&gt;&lt;/td&gt;</span>
+<span class="s">            &lt;td class=code&gt;&lt;/td&gt;</span>
+<span class="s">          &lt;/tr&gt;</span>
+<span class="s">        &lt;/thead&gt;</span>
+<span class="s">        &lt;tbody&gt;`</span><span class="p">,</span> <span class="nx">strings</span><span class="p">.</span><span class="nx">TrimSuffix</span><span class="p">(</span><span class="nx">sourcePath</span><span class="p">,</span> <span class="s">&quot;.go&quot;</span><span class="p">))</span>
+  
+</pre></div>
+</td>
+           </tr><tr>
+             <td class=docs><p>Print HTML docs/code segments.
+Append the doc/code segments to an array</p>
+</td>
+             <td class=code><div class="highlight"><pre>	<span class="kd">var</span> <span class="nx">htmlsegs</span> <span class="kt">string</span>
+	<span class="kd">var</span> <span class="nx">s</span> <span class="kt">string</span>
+	<span class="k">for</span> <span class="nx">_</span><span class="p">,</span> <span class="nx">seg</span> <span class="o">:=</span> <span class="k">range</span> <span class="nx">segs</span> <span class="p">{</span>
+		<span class="nx">s</span> <span class="p">=</span> <span class="nx">fmt</span><span class="p">.</span><span class="nx">Sprintf</span><span class="p">(</span>
+			<span class="s">`&lt;tr&gt;</span>
+<span class="s">             &lt;td class=docs&gt;%s&lt;/td&gt;</span>
+<span class="s">             &lt;td class=code&gt;%s&lt;/td&gt;</span>
+<span class="s">           &lt;/tr&gt;`</span><span class="p">,</span> <span class="nx">seg</span><span class="p">.</span><span class="nx">docsRendered</span><span class="p">,</span> <span class="nx">seg</span><span class="p">.</span><span class="nx">codeRendered</span><span class="p">)</span>
+		<span class="nx">htmlsegs</span> <span class="p">=</span> <span class="nx">htmlsegs</span> <span class="o">+</span> <span class="nx">s</span>
+	<span class="p">}</span>
+  
+</pre></div>
+</td>
+           </tr><tr>
+             <td class=docs><p>Print HTML footer.</p>
+</td>
+             <td class=code><div class="highlight"><pre>	<span class="nx">footer</span> <span class="o">:=</span> <span class="nx">fmt</span><span class="p">.</span><span class="nx">Sprint</span><span class="p">(</span><span class="s">`&lt;/tbody&gt;</span>
+<span class="s">           &lt;/table&gt;</span>
+<span class="s">         &lt;/div&gt;</span>
+<span class="s">       &lt;/body&gt;</span>
+<span class="s">     &lt;/html&gt;`</span><span class="p">)</span>
+
+	<span class="nx">htmldoc</span> <span class="o">:=</span> <span class="nx">header</span> <span class="o">+</span> <span class="nx">htmlsegs</span> <span class="o">+</span> <span class="nx">footer</span>
+	<span class="nx">htmlfile</span> <span class="o">:=</span> <span class="p">[]</span><span class="nb">byte</span><span class="p">(</span><span class="nx">htmldoc</span><span class="p">)</span>
+	<span class="nx">filename</span> <span class="o">:=</span> <span class="nx">strings</span><span class="p">.</span><span class="nx">TrimSuffix</span><span class="p">(</span><span class="nx">sourcePath</span><span class="p">,</span> <span class="s">&quot;.go&quot;</span><span class="p">)</span> <span class="o">+</span> <span class="s">&quot;.html&quot;</span>
+	<span class="nx">err</span> <span class="p">=</span> <span class="nx">ioutil</span><span class="p">.</span><span class="nx">WriteFile</span><span class="p">(</span><span class="nx">filename</span><span class="p">,</span> <span class="nx">htmlfile</span><span class="p">,</span> <span class="mo">0644</span><span class="p">)</span>
+	<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+		<span class="nb">panic</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+	<span class="p">}</span>
+<span class="p">}</span>
+  
+</pre></div>
+</td>
+           </tr></tbody>
+           </table>
+         </div>
+       </body>
+     </html>
